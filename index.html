@@ -6,59 +6,86 @@
 
   <title>SDAPI Explorer</title>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       font-family: system-ui, sans-serif;
-      background: #0d0d14;
+      background:
+        radial-gradient(circle at top left, #32246f, transparent 34rem),
+        radial-gradient(circle at top right, #0a6275, transparent 32rem),
+        #090912;
       color: white;
       padding: 2rem;
     }
 
     .page {
-      max-width: 1200px;
+      max-width: 1250px;
       margin: auto;
     }
 
     h1 {
-      font-size: 3rem;
-      margin-bottom: 0.3rem;
+      font-size: clamp(2.6rem, 7vw, 5rem);
+      margin: 0;
+      letter-spacing: -0.07em;
+    }
+
+    h2 {
+      margin-top: 0;
     }
 
     .muted {
-      color: #b8b3cc;
+      color: #c8c2ee;
+    }
+
+    .hero {
+      margin-bottom: 2rem;
     }
 
     .stats {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 1rem;
-      margin: 2rem 0;
+      margin-bottom: 2rem;
     }
 
     .card, .panel {
       background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 1.2rem;
       padding: 1rem;
+      box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(16px);
     }
 
     .card h2 {
+      font-size: 2.4rem;
       margin: 0;
-      font-size: 2rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.3fr 0.7fr;
+      gap: 1rem;
+      align-items: start;
     }
 
     .controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.6rem;
+      gap: 0.7rem;
       margin-bottom: 1rem;
     }
 
-    button, input {
+    button, input, select {
       border: 0;
       border-radius: 999px;
-      padding: 0.7rem 1rem;
+      padding: 0.75rem 1rem;
       font: inherit;
     }
 
@@ -66,11 +93,24 @@
       cursor: pointer;
       background: white;
       color: #111;
-      font-weight: 700;
+      font-weight: 800;
+      transition: 0.15s ease;
     }
 
-    input {
-      min-width: 12rem;
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button.active {
+      background: linear-gradient(135deg, #7c5cff, #00d4ff);
+      color: white;
+      box-shadow: 0 0 24px rgba(124, 92, 255, 0.5);
+    }
+
+    input, select {
+      background: rgba(255, 255, 255, 0.95);
+      color: #111;
+      min-width: 10rem;
     }
 
     table {
@@ -80,28 +120,84 @@
     }
 
     th, td {
-      padding: 0.75rem;
+      padding: 0.8rem;
       border-bottom: 1px solid rgba(255, 255, 255, 0.12);
       text-align: left;
     }
 
+    th {
+      color: #dcd8ff;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
     a {
-      color: #9cf;
+      color: #8fe7ff;
       text-decoration: none;
-      font-weight: 700;
+      font-weight: 800;
     }
 
     a:hover {
       text-decoration: underline;
     }
 
-    @media (max-width: 700px) {
-      .stats {
+    .rank {
+      font-weight: 900;
+      color: #ffd66b;
+    }
+
+    .project-card {
+      margin-bottom: 1rem;
+    }
+
+    .project-title {
+      font-size: 1.7rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .project-numbers {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin: 1rem 0;
+    }
+
+    .pill {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.5rem 0.8rem;
+      border-radius: 999px;
+      color: #e8e4ff;
+    }
+
+    .chart-box {
+      height: 320px;
+      margin-top: 1rem;
+    }
+
+    canvas {
+      max-height: 320px;
+    }
+
+    .error {
+      color: #ff9a9a;
+    }
+
+    @media (max-width: 850px) {
+      body {
+        padding: 1rem;
+      }
+
+      .stats, .grid {
         grid-template-columns: 1fr;
       }
 
-      body {
-        padding: 1rem;
+      table {
+        font-size: 0.9rem;
       }
     }
   </style>
@@ -109,8 +205,12 @@
 
 <body>
   <main class="page">
-    <h1>SDAPI Explorer</h1>
-    <p class="muted">A public Stardance project leaderboard powered by SDAPI.</p>
+    <section class="hero">
+      <h1>SDAPI Explorer</h1>
+      <p class="muted">
+        Stardance leaderboards, project lookup, growth data, and history graphs powered by SDAPI.
+      </p>
+    </section>
 
     <section class="stats">
       <div class="card">
@@ -129,26 +229,52 @@
       </div>
     </section>
 
-    <section class="panel">
-      <div class="controls">
-        <button onclick="loadLeaderboard('hours')">Top hours</button>
-        <button onclick="loadLeaderboard('followers')">Top followers</button>
-        <button onclick="loadLeaderboard('devlogs')">Top devlogs</button>
+    <section class="grid">
+      <section class="panel">
+        <h2>Leaderboards</h2>
 
-        <input id="projectId" placeholder="Project ID">
-        <button onclick="loadProject()">Open project</button>
+        <div class="controls">
+          <button class="board-btn" id="btn-hours" onclick="loadLeaderboard('hours')">Top hours</button>
+          <button class="board-btn" id="btn-followers" onclick="loadLeaderboard('followers')">Top followers</button>
+          <button class="board-btn" id="btn-devlogs" onclick="loadLeaderboard('devlogs')">Top devlogs</button>
+          <button class="board-btn" id="btn-growth" onclick="loadGrowth('hours')">Growth</button>
+          <button onclick="refresh()">Refresh</button>
+        </div>
 
-        <button onclick="refresh()">Refresh</button>
-      </div>
+        <p id="status" class="muted">Loading...</p>
 
-      <p id="status" class="muted">Loading...</p>
-      <div id="content"></div>
+        <div id="leaderboard"></div>
+      </section>
+
+      <aside class="panel">
+        <h2>Project explorer</h2>
+
+        <div class="controls">
+          <input id="projectId" placeholder="Project ID">
+          <button onclick="loadProject()">Open</button>
+        </div>
+
+        <div class="controls">
+          <button onclick="loadCurrentHistory('hours')">Hours graph</button>
+          <button onclick="loadCurrentHistory('followers')">Followers graph</button>
+          <button onclick="loadCurrentHistory('devlogs')">Devlogs graph</button>
+        </div>
+
+        <div id="project"></div>
+
+        <div class="chart-box">
+          <canvas id="historyChart"></canvas>
+        </div>
+      </aside>
     </section>
   </main>
 
   <script>
     const API = "https://stardance-api.ultimatecraw.xyz";
+
     let currentBoard = "hours";
+    let currentProjectId = null;
+    let chart = null;
 
     async function getJSON(path) {
       const res = await fetch(API + path);
@@ -169,61 +295,132 @@
         .replaceAll("'", "&#039;");
     }
 
+    function number(value) {
+      return Number(value || 0).toLocaleString();
+    }
+
+    function setStatus(text, isError = false) {
+      const status = document.getElementById("status");
+      status.textContent = text;
+      status.className = isError ? "error" : "muted";
+    }
+
+    function setActive(id) {
+      document.querySelectorAll(".board-btn").forEach(button => {
+        button.classList.remove("active");
+      });
+
+      const button = document.getElementById(id);
+      if (button) button.classList.add("active");
+    }
+
     async function loadStats() {
       const stats = await getJSON("/stats");
 
-      document.getElementById("projects").textContent =
-        Number(stats.projects_indexed || 0).toLocaleString();
-
-      document.getElementById("hours").textContent =
-        Math.round(stats.total_hours || 0).toLocaleString();
-
-      document.getElementById("followers").textContent =
-        Number(stats.total_followers || 0).toLocaleString();
+      document.getElementById("projects").textContent = number(stats.projects_indexed);
+      document.getElementById("hours").textContent = number(Math.round(stats.total_hours));
+      document.getElementById("followers").textContent = number(stats.total_followers);
     }
 
     async function loadLeaderboard(field) {
-      currentBoard = field;
-      document.getElementById("status").textContent = "Loading leaderboard...";
+      try {
+        currentBoard = field;
+        setActive("btn-" + field);
+        setStatus("Loading leaderboard...");
 
-      const data = await getJSON(`/projects/top/${field}?limit=100`);
+        const data = await getJSON(`/projects/top/${field}?limit=100`);
 
-      document.getElementById("content").innerHTML = `
-        <h2>Top projects by ${safe(field)}</h2>
+        document.getElementById("leaderboard").innerHTML = `
+          <h2>Top projects by ${safe(field)}</h2>
 
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Project</th>
-              <th>Author</th>
-              <th>Hours</th>
-              <th>Followers</th>
-              <th>Devlogs</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            ${data.map((p, i) => `
+          <table>
+            <thead>
               <tr>
-                <td>${i + 1}</td>
-                <td>
-                  <a href="${safe(p.url)}" target="_blank">
-                    ${safe(p.title)}
-                  </a>
-                </td>
-                <td>${safe(p.author || "")}</td>
-                <td>${Number(p.hours || 0).toLocaleString()}</td>
-                <td>${Number(p.followers || 0).toLocaleString()}</td>
-                <td>${Number(p.devlogs || 0).toLocaleString()}</td>
+                <th>#</th>
+                <th>Project</th>
+                <th>Author</th>
+                <th>Hours</th>
+                <th>Followers</th>
+                <th>Devlogs</th>
               </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      `;
+            </thead>
 
-      document.getElementById("status").textContent =
-        "Last refreshed: " + new Date().toLocaleString();
+            <tbody>
+              ${data.map((p, i) => `
+                <tr>
+                  <td class="rank">${i + 1}</td>
+                  <td>
+                    <a href="#" onclick="openProject(${p.id}); return false;">
+                      ${safe(p.title)}
+                    </a>
+                  </td>
+                  <td>${safe(p.author || "")}</td>
+                  <td>${number(p.hours)}</td>
+                  <td>${number(p.followers)}</td>
+                  <td>${number(p.devlogs)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+
+        setStatus("Last refreshed: " + new Date().toLocaleString());
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    }
+
+    async function loadGrowth(field) {
+      try {
+        currentBoard = "growth";
+        setActive("btn-growth");
+        setStatus("Loading growth data...");
+
+        const data = await getJSON(`/projects/top/growth/${field}?hours=24&limit=50`);
+
+        document.getElementById("leaderboard").innerHTML = `
+          <h2>Fastest growing projects, last 24h</h2>
+
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Project</th>
+                <th>Author</th>
+                <th>Old</th>
+                <th>New</th>
+                <th>Gained</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${data.map((p, i) => `
+                <tr>
+                  <td class="rank">${i + 1}</td>
+                  <td>
+                    <a href="#" onclick="openProject(${p.id}); return false;">
+                      ${safe(p.title)}
+                    </a>
+                  </td>
+                  <td>${safe(p.author || "")}</td>
+                  <td>${number(p.old_value)}</td>
+                  <td>${number(p.new_value)}</td>
+                  <td>+${number(p.gained)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+
+        setStatus("Last refreshed: " + new Date().toLocaleString());
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    }
+
+    async function openProject(id) {
+      document.getElementById("projectId").value = id;
+      await loadProject();
     }
 
     async function loadProject() {
@@ -231,28 +428,123 @@
 
       if (!id) return;
 
-      document.getElementById("status").textContent = "Loading project...";
+      try {
+        currentProjectId = id;
 
-      const p = await getJSON(`/projects/${id}`);
+        const p = await getJSON(`/projects/${id}`);
 
-      document.getElementById("content").innerHTML = `
-        <h2>${safe(p.title)}</h2>
-        <p class="muted">${safe(p.author || "Unknown author")}</p>
-        <p>
-          ${Number(p.hours || 0).toLocaleString()} hours ·
-          ${Number(p.followers || 0).toLocaleString()} followers ·
-          ${Number(p.devlogs || 0).toLocaleString()} devlogs
-        </p>
-        <p><a href="${safe(p.url)}" target="_blank">Open on Stardance</a></p>
-      `;
+        if (p.error) {
+          document.getElementById("project").innerHTML =
+            `<p class="error">${safe(p.error)}</p>`;
+          return;
+        }
 
-      document.getElementById("status").textContent =
-        "Last refreshed: " + new Date().toLocaleString();
+        document.getElementById("project").innerHTML = `
+          <div class="project-card">
+            <div class="project-title">
+              <a href="${safe(p.url)}" target="_blank">${safe(p.title)}</a>
+            </div>
+
+            <p class="muted">${safe(p.author || "Unknown author")}</p>
+
+            <div class="project-numbers">
+              <span class="pill">${number(p.hours)} hours</span>
+              <span class="pill">${number(p.followers)} followers</span>
+              <span class="pill">${number(p.devlogs)} devlogs</span>
+            </div>
+
+            <p class="muted">Updated: ${safe(p.updated_at || "unknown")}</p>
+          </div>
+        `;
+
+        await loadProjectHistory(id, "hours");
+      } catch (error) {
+        document.getElementById("project").innerHTML =
+          `<p class="error">${safe(error.message)}</p>`;
+      }
+    }
+
+    async function loadCurrentHistory(metric) {
+      if (!currentProjectId) return;
+      await loadProjectHistory(currentProjectId, metric);
+    }
+
+    async function loadProjectHistory(id, metric) {
+      const history = await getJSON(`/projects/${id}/history?limit=500`);
+
+      const labels = history.map(row => {
+        const date = new Date(row.scraped_at);
+        return date.toLocaleString([], {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+      });
+
+      const values = history.map(row => Number(row[metric] || 0));
+
+      const ctx = document.getElementById("historyChart");
+
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: metric,
+            data: values,
+            tension: 0.35,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                color: "white"
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                color: "#cfc9ff",
+                maxRotation: 35,
+                minRotation: 0
+              },
+              grid: {
+                color: "rgba(255,255,255,0.08)"
+              }
+            },
+            y: {
+              ticks: {
+                color: "#cfc9ff"
+              },
+              grid: {
+                color: "rgba(255,255,255,0.08)"
+              }
+            }
+          }
+        }
+      });
     }
 
     async function refresh() {
-      await loadStats();
-      await loadLeaderboard(currentBoard);
+      try {
+        await loadStats();
+
+        if (currentBoard === "growth") {
+          await loadGrowth("hours");
+        } else {
+          await loadLeaderboard(currentBoard);
+        }
+      } catch (error) {
+        setStatus(error.message, true);
+      }
     }
 
     refresh();
