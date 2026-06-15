@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>SDAPI Explorer</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #0d0d14;
+      color: white;
+      padding: 2rem;
+    }
+
+    .page {
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .muted {
+      color: #b8b3cc;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin: 2rem 0;
+    }
+
+    .card, .panel {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 1rem;
+      padding: 1rem;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 2rem;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+
+    button, input {
+      border: 0;
+      border-radius: 999px;
+      padding: 0.7rem 1rem;
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      background: white;
+      color: #111;
+      font-weight: 700;
+    }
+
+    input {
+      min-width: 12rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+
+    th, td {
+      padding: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      text-align: left;
+    }
+
+    a {
+      color: #9cf;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 700px) {
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      body {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <h1>SDAPI Explorer</h1>
+    <p class="muted">A public Stardance project leaderboard powered by SDAPI.</p>
+
+    <section class="stats">
+      <div class="card">
+        <h2 id="projects">-</h2>
+        <p class="muted">Projects indexed</p>
+      </div>
+
+      <div class="card">
+        <h2 id="hours">-</h2>
+        <p class="muted">Total hours</p>
+      </div>
+
+      <div class="card">
+        <h2 id="followers">-</h2>
+        <p class="muted">Total followers</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="controls">
+        <button onclick="loadLeaderboard('hours')">Top hours</button>
+        <button onclick="loadLeaderboard('followers')">Top followers</button>
+        <button onclick="loadLeaderboard('devlogs')">Top devlogs</button>
+
+        <input id="projectId" placeholder="Project ID">
+        <button onclick="loadProject()">Open project</button>
+
+        <button onclick="refresh()">Refresh</button>
+      </div>
+
+      <p id="status" class="muted">Loading...</p>
+      <div id="content"></div>
+    </section>
+  </main>
+
+  <script>
+    const API = "https://stardance-api.ultimatecraw.xyz";
+    let currentBoard = "hours";
+
+    async function getJSON(path) {
+      const res = await fetch(API + path);
+
+      if (!res.ok) {
+        throw new Error("Request failed: " + res.status);
+      }
+
+      return await res.json();
+    }
+
+    function safe(text) {
+      return String(text ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    async function loadStats() {
+      const stats = await getJSON("/stats");
+
+      document.getElementById("projects").textContent =
+        Number(stats.projects_indexed || 0).toLocaleString();
+
+      document.getElementById("hours").textContent =
+        Math.round(stats.total_hours || 0).toLocaleString();
+
+      document.getElementById("followers").textContent =
+        Number(stats.total_followers || 0).toLocaleString();
+    }
+
+    async function loadLeaderboard(field) {
+      currentBoard = field;
+      document.getElementById("status").textContent = "Loading leaderboard...";
+
+      const data = await getJSON(`/projects/top/${field}?limit=100`);
+
+      document.getElementById("content").innerHTML = `
+        <h2>Top projects by ${safe(field)}</h2>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Project</th>
+              <th>Author</th>
+              <th>Hours</th>
+              <th>Followers</th>
+              <th>Devlogs</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${data.map((p, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>
+                  <a href="${safe(p.url)}" target="_blank">
+                    ${safe(p.title)}
+                  </a>
+                </td>
+                <td>${safe(p.author || "")}</td>
+                <td>${Number(p.hours || 0).toLocaleString()}</td>
+                <td>${Number(p.followers || 0).toLocaleString()}</td>
+                <td>${Number(p.devlogs || 0).toLocaleString()}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+
+      document.getElementById("status").textContent =
+        "Last refreshed: " + new Date().toLocaleString();
+    }
+
+    async function loadProject() {
+      const id = document.getElementById("projectId").value.trim();
+
+      if (!id) return;
+
+      document.getElementById("status").textContent = "Loading project...";
+
+      const p = await getJSON(`/projects/${id}`);
+
+      document.getElementById("content").innerHTML = `
+        <h2>${safe(p.title)}</h2>
+        <p class="muted">${safe(p.author || "Unknown author")}</p>
+        <p>
+          ${Number(p.hours || 0).toLocaleString()} hours ·
+          ${Number(p.followers || 0).toLocaleString()} followers ·
+          ${Number(p.devlogs || 0).toLocaleString()} devlogs
+        </p>
+        <p><a href="${safe(p.url)}" target="_blank">Open on Stardance</a></p>
+      `;
+
+      document.getElementById("status").textContent =
+        "Last refreshed: " + new Date().toLocaleString();
+    }
+
+    async function refresh() {
+      await loadStats();
+      await loadLeaderboard(currentBoard);
+    }
+
+    refresh();
+  </script>
+</body>
+</html>
