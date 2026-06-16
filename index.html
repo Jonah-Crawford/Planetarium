@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>SDAPI Explorer</title>
+  <title>Planetarium</title>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -47,6 +47,12 @@
       margin-bottom: 2rem;
     }
 
+    .sidebar__logo-img {
+      width: 300px;
+      height: auto;
+      flex-shrink: 0;
+    }
+
     .stats {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -70,9 +76,17 @@
 
     .grid {
       display: grid;
-      grid-template-columns: 1.3fr 0.7fr;
+      grid-template-columns: minmax(0, 1fr) 360px;
       gap: 1rem;
       align-items: start;
+    }
+
+    .panel {
+      min-width: 0;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
     }
 
     .controls {
@@ -87,6 +101,14 @@
       border-radius: 999px;
       padding: 0.75rem 1rem;
       font: inherit;
+    }
+
+    .hero-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 2rem;
+      margin-bottom: 2rem;
     }
 
     button {
@@ -206,10 +228,23 @@
 <body>
   <main class="page">
     <section class="hero">
-      <h1>SDAPI Explorer</h1>
+      <div class="hero-container">
+        <h1>Planetarium</h1>
+
+        <img
+          alt="Hack Club Stardance Challenge"
+          class="sidebar__logo-img"
+          src="https://stardance.hackclub.com/assets/landing/header/stardance-logo-df399a7f.png">
+
+      </div>
+
       <p class="muted">
-        Stardance leaderboards, project lookup, growth data, and history graphs powered by SDAPI.
+        Stardance leaderboards, project lookup, growth data, and history graphs powered by <a href="https://stardance-api.ultimatecraw.xyz/docs#/">Craw's SDAPI</a>. Updated every ~6 hours.
       </p>
+      <p class="muted">
+        Follow <a href="https://stardance.hackclub.com/projects/8100">Crawssembly!</a>
+      </p>
+
     </section>
 
     <section class="stats">
@@ -239,6 +274,7 @@
           <button class="board-btn" id="btn-devlogs" onclick="loadLeaderboard('devlogs')">Top devlogs</button>
           <button class="board-btn" id="btn-growth" onclick="loadGrowth('hours')">Growth</button>
           <button onclick="refresh()">Refresh</button>
+          <input id="leaderboardSearch" placeholder="Search projects or authors..." oninput="renderCurrentBoard()">
         </div>
 
         <p id="status" class="muted">Loading...</p>
@@ -275,6 +311,9 @@
     let currentBoard = "hours";
     let currentProjectId = null;
     let chart = null;
+
+    let leaderboardData = [];
+    let leaderboardTitle = "";
 
     async function getJSON(path) {
       const res = await fetch(API + path);
@@ -328,10 +367,53 @@
         setActive("btn-" + field);
         setStatus("Loading leaderboard...");
 
-        const data = await getJSON(`/projects/top/${field}?limit=100`);
+        const data = await getJSON(`/projects/top/${field}?limit=20000`);
 
-        document.getElementById("leaderboard").innerHTML = `
-          <h2>Top projects by ${safe(field)}</h2>
+        leaderboardData = data;
+        leaderboardTitle = `Top projects by ${field}`;
+        renderLeaderboard();
+
+        setStatus("Last refreshed: " + new Date().toLocaleString());
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    }
+
+    function renderCurrentBoard() {
+      if (currentBoard === "growth") {
+        renderGrowth();
+      } else {
+        renderLeaderboard();
+      }
+    }
+
+    function renderLeaderboard() {
+      const query = document.getElementById("leaderboardSearch").value.toLowerCase().trim();
+
+      const ranked = leaderboardData.map((p, i) => ({
+        ...p,
+        rank: i + 1
+      }));
+
+      const filtered = ranked.filter(p => {
+        const title = String(p.title || "").toLowerCase();
+        const author = String(p.author || "").toLowerCase();
+        const id = String(p.id || "");
+
+        return title.includes(query) || author.includes(query) || id.includes(query);
+      });
+
+      const totalResults = filtered.length;
+      const totalProjects = leaderboardData.length;
+
+      document.getElementById("leaderboard").innerHTML = `
+        <h2>${safe(leaderboardTitle)}</h2>
+
+        <p class="muted">
+          Showing ${number(totalResults)} of ${number(totalProjects)} projects
+        </p>
+
+        <div class="table-wrap">
 
           <table>
             <thead>
@@ -346,9 +428,9 @@
             </thead>
 
             <tbody>
-              ${data.map((p, i) => `
+              ${filtered.map(p => `
                 <tr>
-                  <td class="rank">${i + 1}</td>
+                  <td class="rank">${p.rank}</td>
                   <td>
                     <a href="#" onclick="openProject(${p.id}); return false;">
                       ${safe(p.title)}
@@ -362,12 +444,8 @@
               `).join("")}
             </tbody>
           </table>
-        `;
-
-        setStatus("Last refreshed: " + new Date().toLocaleString());
-      } catch (error) {
-        setStatus(error.message, true);
-      }
+        </div>
+      `;
     }
 
     async function loadGrowth(field) {
@@ -376,41 +454,11 @@
         setActive("btn-growth");
         setStatus("Loading growth data...");
 
-        const data = await getJSON(`/projects/top/growth/${field}?hours=24&limit=50`);
+        const data = await getJSON(`/projects/top/growth/${field}?hours=24&limit=20000`);
 
-        document.getElementById("leaderboard").innerHTML = `
-          <h2>Fastest growing projects, last 24h</h2>
-
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Project</th>
-                <th>Author</th>
-                <th>Old</th>
-                <th>New</th>
-                <th>Gained</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              ${data.map((p, i) => `
-                <tr>
-                  <td class="rank">${i + 1}</td>
-                  <td>
-                    <a href="#" onclick="openProject(${p.id}); return false;">
-                      ${safe(p.title)}
-                    </a>
-                  </td>
-                  <td>${safe(p.author || "")}</td>
-                  <td>${number(p.old_value)}</td>
-                  <td>${number(p.new_value)}</td>
-                  <td>+${number(p.gained)}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        `;
+        leaderboardData = data;
+        leaderboardTitle = "Fastest growing projects, last 24h";
+        renderGrowth();
 
         setStatus("Last refreshed: " + new Date().toLocaleString());
       } catch (error) {
@@ -462,6 +510,66 @@
         document.getElementById("project").innerHTML =
           `<p class="error">${safe(error.message)}</p>`;
       }
+    }
+
+    function renderGrowth() {
+      const query = document.getElementById("leaderboardSearch").value.toLowerCase().trim();
+
+      const ranked = leaderboardData.map((p, i) => ({
+        ...p,
+        rank: i + 1
+      }));
+
+      const filtered = ranked.filter(p => {
+        const title = String(p.title || "").toLowerCase();
+        const author = String(p.author || "").toLowerCase();
+        const id = String(p.id || "");
+
+        return title.includes(query) || author.includes(query) || id.includes(query);
+      });
+
+      const totalResults = filtered.length;
+      const totalProjects = leaderboardData.length;
+
+      document.getElementById("leaderboard").innerHTML = `
+        <h2>${safe(leaderboardTitle)}</h2>
+
+        <p class="muted">
+          Showing ${number(totalResults)} of ${number(totalProjects)} projects
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Project</th>
+                <th>Author</th>
+                <th>Old</th>
+                <th>New</th>
+                <th>Gained</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${filtered.map((p, i) => `
+                <tr>
+                  <td class="rank">${p.rank}</td>
+                  <td>
+                    <a href="#" onclick="openProject(${p.id}); return false;">
+                      ${safe(p.title)}
+                    </a>
+                  </td>
+                  <td>${safe(p.author || "")}</td>
+                  <td>${number(p.old_value)}</td>
+                  <td>${number(p.new_value)}</td>
+                  <td>+${number(p.gained)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
     }
 
     async function loadCurrentHistory(metric) {
