@@ -47,6 +47,16 @@
       margin-bottom: 2rem;
     }
 
+    .super-star {
+      display: inline-block;
+      background: linear-gradient(135deg, #ffd36a, #f0a8ff);
+      color: #111;
+      font-weight: 900;
+      padding: 0.3rem 0.6rem;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
     .sidebar__logo-img {
       width: 300px;
       height: auto;
@@ -286,7 +296,7 @@
         <h2>Project explorer</h2>
 
         <div class="controls">
-          <input id="projectId" placeholder="Project ID">
+          <input id="projectId" placeholder="Project ID, not name">
           <button onclick="loadProject()">Open</button>
         </div>
 
@@ -420,6 +430,7 @@
               <tr>
                 <th>#</th>
                 <th>Project</th>
+                <th>Super Star</th>
                 <th>Author</th>
                 <th>Hours</th>
                 <th>Followers</th>
@@ -436,6 +447,7 @@
                       ${safe(p.title)}
                     </a>
                   </td>
+                  <td>${p.super_star ? '<span class="super-star">⭐</span>' : ''}</td>
                   <td>${safe(p.author || "")}</td>
                   <td>${number(p.hours)}</td>
                   <td>${number(p.followers)}</td>
@@ -499,6 +511,7 @@
               <span class="pill">${number(p.hours)} hours</span>
               <span class="pill">${number(p.followers)} followers</span>
               <span class="pill">${number(p.devlogs)} devlogs</span>
+              <span class="muted">${p.super_star ? '<span class="super-star">⭐ Super Star Project</span>' : ''}</span>
             </div>
 
             <p class="muted">Updated: ${safe(p.updated_at || "unknown")}</p>
